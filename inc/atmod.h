@@ -26,20 +26,23 @@ struct usbev_module {
 	usb_dev_cb	_deinit;
 };
 
-typedef enum {
-	MOD_USBDEV_DETECT =	0,
-	MOD_USBDEV_AT,
-	MOD_USBDEV_DIAL,
-	MOD_USBDEV_NET,
-	MOD_USBDEV_SMS,
-	MOD_USBDEV_MAX,
-}usbdev_mod_idx;
+typedef enum
+{
+    MOD_USBDEV_DETECT =	0,
+    MOD_USBDEV_AT,
+    MOD_USBDEV_DIAL,
+    MOD_USBDEV_NET,
+    MOD_USBDEV_SMS,
+    MOD_USBDEV_ECM,
+    MOD_USBDEV_MAX,
+} usbdev_mod_idx;
 
 extern struct usbev_module  usbdev_detect;
 extern struct usbev_module  usbdev_at;
 extern struct usbev_module  usbdev_dial;
 extern struct usbev_module  usbdev_net;
 extern struct usbev_module  usbdev_sms;
+extern struct usbev_module  usbdev_ecm;
 
 extern struct usbev_module* usb_module[];
 

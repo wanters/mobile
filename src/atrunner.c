@@ -11,7 +11,7 @@
 *
 **************************************************************************/
 
-#include <stdlib.h>	 
+#include <stdlib.h>
 #include <sys/wait.h>
 
 #include "atmod.h"
@@ -22,6 +22,8 @@
 #include "at.h"
 #include "aterr.h"
 #include "atnet.h"
+#include "atsms.h"
+#include "atecm.h"
 
 
 //
@@ -41,147 +43,190 @@
  */
 static void onRequest (int request, void *data, unsigned int  datalen)
 {
-	
+
 }
 static void PrtVersion(void)
 {
     printf("#########################################################\n");
-	printf("#  Name	    :  Mobile Process                           #\n");
-	printf("#  Author   :  luotang.me                               #\n");
-	printf("#  Version  :  1.0                                      #\n");
-	printf("#  Time     :  2018-01-27                               #\n");
-	printf("#  Content  :  Hardware - SIM - Dial - NetPing          #\n");
-	printf("#########################################################\n");
+    printf("#  Name	    :  Mobile Process                           #\n");
+    printf("#  Author   :  luotang.me                               #\n");
+    printf("#  Version  :  1.0                                      #\n");
+    printf("#  Time     :  2018-01-27                               #\n");
+    printf("#  Content  :  Hardware - SIM - Dial - NetPing          #\n");
+    printf("#########################################################\n");
 }
 
-int sig_pppd_exit(void* lparam) {
+int sig_pppd_exit(void *lparam)
+{
 
-	int status;
-	int exitNo = 0;
-	pid_t* pid = lparam;
-	//AT_ERR("4G net_valid: %d\n", net_valid());
+    int status;
+    int exitNo = 0;
+    pid_t *pid = lparam;
+    //AT_ERR("4G net_valid: %d\n", net_valid());
 
-	if(*pid > 0)
-		kill(*pid, SIGTERM);//SIGTERM  SIGKILL
+    if(*pid > 0)
+        kill(*pid, SIGTERM);//SIGTERM  SIGKILL
 
-	*pid = waitpid(*pid, &status, 0);
-	if (*pid != -1) {
-		AT_ERR("process %d exit\n", (int)*pid);
-	}
+    *pid = waitpid(*pid, &status, 0);
+    if (*pid != -1)
+    {
+        AT_ERR("process %d exit\n", (int)*pid);
+    }
 
-	if (WIFEXITED(status)){
-		exitNo = WEXITSTATUS(status);
-		AT_ERR("normal termination, exit status =%d\n", exitNo);
-	}
-	return 0;
+    if (WIFEXITED(status))
+    {
+        exitNo = WEXITSTATUS(status);
+        AT_ERR("normal termination, exit status =%d\n", exitNo);
+    }
+    return 0;
 }
 
 static int pppid = 0;
-void sig_handler(int sig) {
+void sig_handler(int sig)
+{
 
-	if (SIGINT == sig 
-	 || SIGKILL == sig 
-	 || SIGSEGV == sig) {
-		 sig_pppd_exit(&pppid);
-         exit(0);
+    if (SIGINT == sig
+            || SIGKILL == sig
+            || SIGSEGV == sig)
+    {
+        //printf("进程退出原因： %d\n", sig);
+        sig_pppd_exit(&pppid);
+        exit(0);
     }
 }
 
 int main (int argc, char **argv)
 {
-	PrtVersion();
+    PrtVersion();
 
-	signal(SIGINT,  sig_handler);
-	signal(SIGKILL, sig_handler);
-	signal(SIGSEGV, sig_handler);
+    signal(SIGINT,  sig_handler);
+    signal(SIGKILL, sig_handler);
+    signal(SIGSEGV, sig_handler);
 
     struct usb_info 	usb;
-	struct at_info 		at;
-	struct dial_info 	dial;
-	struct net_info 	net;
+    struct at_info 		at;
+    struct dial_info 	dial;
+    struct net_info 	net;
+    struct sms_info		sms;
+    struct ecm_info		ecm;
 
-	memset(&net,  0, sizeof(struct net_info));
-	memset(&dial, 0, sizeof(struct dial_info));
-	memset(&at,   0, sizeof(struct at_info));
-	memset(&usb,  0, sizeof(struct usb_info));
+    memset(&net,  0, sizeof(struct net_info));
+    memset(&dial, 0, sizeof(struct dial_info));
+    memset(&at,   0, sizeof(struct at_info));
+    memset(&usb,  0, sizeof(struct usb_info));
+    memset(&sms,  0, sizeof(struct sms_info));
+    memset(&ecm,  0, sizeof(struct ecm_info));
 
-	printf("\n##################  CHECK INFO  ########################\n");
-	
-	usb_module[MOD_USBDEV_DETECT]->_init(NULL, 0);
-	usb_module[MOD_USBDEV_DETECT]->_get_info(&usb, sizeof(usb));
-	if(usb.ustat != E_USB_TTY_EXIST)
-		return -1;
-	
-	usb_module[MOD_USBDEV_AT]->_init(&usb, sizeof(usb));
-	usb_module[MOD_USBDEV_AT]->_get_info(&at, sizeof(at));
-	if (at.stat != E_AT_OPEN_SUCC)
-		return -1;
-	
-	/* Test AT and AT+CGMM */
-	usb_module[MOD_USBDEV_DETECT]->_start(NULL, 0);
-	usb_module[MOD_USBDEV_DETECT]->_get_info(&usb, sizeof(usb));
+    printf("\n##################  CHECK INFO  ########################\n");
 
-	printf("\n##################  HardWare Info  ######################\n");
-	printf("AT PORT       : %d\n", 		usb.match.atport);
-	printf("MEDEM PORT    : %d\n", 		usb.match.modemport);
-	printf("DEBUG PORT    : %d\n", 		usb.match.debugport);
-	printf("VENDDOR ID    : 0x%x\n", 	usb.match.vendorid);
-	printf("PRODUCT ID    : 0x%x\n", 	usb.match.productid);
-	printf("USB MODEM     : %s\n", 		usb.match.usbname);
-	printf("USB IMODEL    : %s\n", 		model_request(usb.match.imodel));
-	printf("RESULT        : %s\n", 		error_request(usb.ustat));
+    usb_module[MOD_USBDEV_DETECT]->_init(NULL, 0);
+    usb_module[MOD_USBDEV_DETECT]->_get_info(&usb, sizeof(usb));
+    if(usb.ustat != E_USB_TTY_EXIST)
+    {
+        printf("RESULT        : %s\n", 		error_request(usb.ustat));
+        return -1;
+    }
 
-	if(usb.ustat != E_USB_TTY_AVAILABLE)
-		return -1;
+    usb_module[MOD_USBDEV_AT]->_init(&usb, sizeof(usb));
+    usb_module[MOD_USBDEV_AT]->_get_info(&at, sizeof(at));
+    if (at.stat != E_AT_OPEN_SUCC)
+    {
+        printf("RESULT        : %s\n", 		error_request(at.stat));
+        return -1;
+    }
 
+    /* Test AT and AT+CGMM */
+    usb_module[MOD_USBDEV_DETECT]->_start(NULL, 0);
+    usb_module[MOD_USBDEV_DETECT]->_get_info(&usb, sizeof(usb));
 
-	usb_module[MOD_USBDEV_AT]->_start(NULL, 0);
-	usb_module[MOD_USBDEV_AT]->_get_info(&at, sizeof(at));
+    printf("\n##################  HardWare Info  ######################\n");
+    printf("AT PORT       : %d\n", 		usb.match.atport);
+    printf("MEDEM PORT    : %d\n", 		usb.match.modemport);
+    printf("DEBUG PORT    : %d\n", 		usb.match.debugport);
+    printf("VENDDOR ID    : 0x%x\n", 	usb.match.vendorid);
+    printf("PRODUCT ID    : 0x%x\n", 	usb.match.productid);
+    printf("USB MODEM     : %s\n", 		usb.match.usbname);
+    printf("USB IMODEL    : %s\n", 		model_request(usb.match.imodel));
+    printf("RESULT        : %s\n", 		error_request(usb.ustat));
 
-	printf("\n##################  SIM INFO ########################\n");
-	printf("AT TEST: %s\n", 	error_request(at.stat));
-	printf("SIM    : %s\n", 	oper_request(at.oper));
-	printf("CSQ    : %d\n", 	at.csq);
-	printf("MODE   : %s\n\n", 	at.mode_name);
-	
-	if(at.stat != E_USB_HARDWARE_OK)
-		return -1;
+    if(usb.ustat != E_USB_TTY_AVAILABLE)
+    {
+        printf("RESULT        : %s\n", 		error_request(usb.ustat));
+        return -1;
+    }
 
-	usb_module[MOD_USBDEV_DIAL]->_init(&at, sizeof(at)); //check net
-	usb_module[MOD_USBDEV_DIAL]->_start(&usb, sizeof(usb));
-	usb_module[MOD_USBDEV_DIAL]->_get_info(&dial, sizeof(dial));
-	
-	printf("\n##################  4G DIALING  #####################\n");
-	printf("RESULT    : %d\n", 		dial.stat);
-	printf("IP    	  : %s\n", 		dial.ip);
-	printf("DNS1      : %s\n", 		dial.dns1);
-	printf("DNS2      : %s\n", 		dial.dns2);
-	printf("GateWay   : %s\n\n", 	dial.gateway);
+    usb_module[MOD_USBDEV_AT]->_start(NULL, 0);
+    usb_module[MOD_USBDEV_AT]->_get_info(&at, sizeof(at));
 
-	while(1) {
-		usb_module[MOD_USBDEV_DIAL]->_get_info(&dial, sizeof(dial));
-		if(dial.stat)
-			break;
-		else
-			sleep(2);
-	}
-
-	pppid = dial.ppid;
-	usb_module[MOD_USBDEV_NET]->_init(NULL, 0);
-	usb_module[MOD_USBDEV_NET]->_start(NULL, 0);
-	usb_module[MOD_USBDEV_NET]->_get_info(&net, sizeof(struct net_info));
-	
-	printf("\n##################  4G NET TEST #######################\n");
-	printf("TEST RESULT  : %d\n", 		net.result);
-	printf("TEST DNS     : %s\n", 		net.test_dns1);
-	printf("TEST DOMAIN  : %s\n", 		net.test_domain);
+    printf("\n##################  SIM INFO ########################\n");
+    printf("AT TEST: %s\n", 	error_request(at.stat));
+    printf("SIM    : %s\n", 	oper_request(at.oper));
+    printf("CSQ    : %d\n", 	at.csq);
+    printf("MODE   : %s\n\n", 	at.mode_name);
 
 
-	printf("\n##################  TEST OVER  #########################\n\n");
-	
-	while(1) {
-		sleep(2);
-	}
+    if(at.stat != E_USB_HARDWARE_OK)
+    {
+        printf("RESULT        : %s\n", 		error_request(at.stat));
+        return -1;
+    }
+
+#if 1
+    usb_module[MOD_USBDEV_SMS]->_init(NULL, 0);
+    usb_module[MOD_USBDEV_SMS]->_get_info(&sms, sizeof(sms));
+
+    usb_module[MOD_USBDEV_SMS]->_start(NULL, 0);
+    usb_module[MOD_USBDEV_SMS]->_get_info(&sms, sizeof(sms));
+
+    printf("\n##################  SMS INFO ########################\n");
+    printf("SMS TEST  : %d\n", 	sms.stat);
+    printf("NUMBER    : %s\n", 	sms.receive_number);
+    printf("FORMAT    : %d\n", 	sms.format);
+#endif
+
+    usb_module[MOD_USBDEV_ECM]->_init(NULL, 0);
+    usb_module[MOD_USBDEV_ECM]->_get_info(&ecm, sizeof(ecm));
+
+
+#if 0
+    usb_module[MOD_USBDEV_DIAL]->_init(&at, sizeof(at)); //check net
+    usb_module[MOD_USBDEV_DIAL]->_start(&usb, sizeof(usb));
+    usb_module[MOD_USBDEV_DIAL]->_get_info(&dial, sizeof(dial));
+
+    printf("\n##################  4G DIALING  #####################\n");
+    printf("RESULT    : %d\n", 		dial.stat);
+    printf("IP    	  : %s\n", 		dial.ip);
+    printf("DNS1      : %s\n", 		dial.dns1);
+    printf("DNS2      : %s\n", 		dial.dns2);
+    printf("GateWay   : %s\n\n", 	dial.gateway);
+
+    while(1)
+    {
+        usb_module[MOD_USBDEV_DIAL]->_get_info(&dial, sizeof(dial));
+        if(dial.stat)
+            break;
+        else
+            sleep(2);
+    }
+
+    pppid = dial.ppid;
+    usb_module[MOD_USBDEV_NET]->_init(NULL, 0);
+    usb_module[MOD_USBDEV_NET]->_start(NULL, 0);
+    usb_module[MOD_USBDEV_NET]->_get_info(&net, sizeof(struct net_info));
+
+    printf("\n##################  4G NET TEST #######################\n");
+    printf("TEST RESULT  : %d\n", 		net.result);
+    printf("TEST DNS     : %s\n", 		net.test_dns1);
+    printf("TEST DOMAIN  : %s\n", 		net.test_domain);
+
+
+    printf("\n##################  TEST OVER  #########################\n\n");
+#endif
+    while(1)
+    {
+        //printf("打印中.....\n");
+        sleep(2);
+    }
     return 0;
 }
 

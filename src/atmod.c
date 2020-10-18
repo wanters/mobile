@@ -13,11 +13,13 @@
 #include "atmod.h"
 
 
-struct usbev_module* usb_module[] = {
-	&usbdev_detect,
-	&usbdev_at,
-	&usbdev_dial,
-	&usbdev_net,
-	&usbdev_sms,
-	NULL,
+struct usbev_module *usb_module[] =
+{
+    &usbdev_detect,
+    &usbdev_at,
+    &usbdev_dial,
+    &usbdev_net,
+    &usbdev_sms,
+    &usbdev_ecm,
+    NULL,
 };

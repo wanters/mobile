@@ -4,37 +4,37 @@
 #
 
 ROOTDIR = ../..
-include $(ROOTDIR)/Rules.make
-
+#include $(ROOTDIR)/Rules.make
+CC		= arm-linux-gcc
 BIN		= bin
 TARGET	= $(BIN)/mobile
 
 SRCS 	= $(wildcard src/*.c)
 OBJS	= $(SRCS:%.c=$(BIN)/%.o)
 
-IFLAGS 		= -I./inc -I $(ROOTDIR)/inc 
-CFLAGS 		= -Wall -W -O2 -Wswitch-default -Wpointer-arith -Wno-unused -g
-DFLAGS 		= -D_GNU_SOURCE 
+IFLAGS 		= -I./inc 
+CFLAGS 		= #-Wall -W -O2  -Wswitch-default -Wpointer-arith -g #-Wno-unused -g
+#DFLAGS 		= -D_GNU_SOURCE 
 LD_FLAGS 	= -lpthread 
 
-GFLAG 		= $(CFLAGS) $(DFLAGS) $(IFLAGS)
+GFLAG 		= $(CFLAGS) $(IFLAGS)# $(DFLAGS) 
 
 .PHONY: all clean
 
 all : $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(LINK) -o $@ $^ $(LD_FLAGS) 
-	$(STRIP) $@
-	$(STRIP) -x -R .note -R .comment $@
-	rm -rf $(BIN)/src/
-	@echo "====Makefile GFLAG==="
-	@echo $(GFLAG)
-	@echo "======================"
+	@$(CC) -o $@ $^ $(LD_FLAGS) 
+	@date 
+	
+#$(STRIP) $@
+#$(STRIP) -x -R .note -R .comment $@
+
 $(BIN)/%.o:%.c
 	@mkdir -p $(BIN)
 	@mkdir -p $(dir $@)
-	$(CC) $(GFLAG) -c $^ -o $@
-
+	@$(CC) $(GFLAG) -c $^ -o $@
+	@echo $@
+	@echo [CC] $^
 clean :
 	rm -rf $(BIN)/*
